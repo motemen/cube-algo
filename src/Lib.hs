@@ -19,6 +19,7 @@ import           Math.Core.Utils
 import           Data.List
 import           Data.Maybe
 import           Data.Tuple
+import           Data.Char
 
 -- http://hackage.haskell.org/package/HaskellForMaths-0.4.8/docs/src/Math-Projects-Rubik.html
 -- http://rubiks.wikia.com/wiki/Notation
@@ -43,16 +44,27 @@ z = f * s ^- 1 * b ^- 1
 --           37 38 39
 
 parseAlg :: String -> Algorithm
-parseAlg s = parseAlg' s []
-    where
-        parseAlg' "" a = reverse a
-        parseAlg' [x] a = reverse $ (permFromString [x]):a
-        parseAlg' (x:y:xs) a  | isNothing $ [x] `lookup` permNotations = parseAlg' (y:xs) a
-                             | y == '2' || y == '\'' = parseAlg' xs $ (permFromString [x, y]):a
-                             | otherwise = parseAlg' (y:xs) $ (permFromString [x]):a
+parseAlg s = let (a, rest) = parseAlg' s [] in a
+  where
+    pow [a] (-1) = [a ^- 1]
+    pow [a] n    = [a ^ n]
+    pow aa  (-1) = map (^- 1) $ reverse aa
+    pow aa  n    = concat $ replicate n aa
+
+    parseAlg' [] a = (concat $ reverse a, "")
+    parseAlg' (x : xs) a
+        | isSpace x = parseAlg' xs a
+        | x == '\'' = parseAlg' xs $ pow (head a) (-1) : tail a
+        | x == '2'  = parseAlg' xs $ pow (head a) 2 : tail a
+        | x == '3'  = parseAlg' xs $ pow (head a) 3 : tail a
+        | x == '4'  = parseAlg' xs $ pow (head a) 4 : tail a
+        | x == '('  = let (a', rest) = parseAlg' xs []
+                      in  parseAlg' rest $ a' : a
+        | x == ')' = (concat $ reverse a, xs)
+        | otherwise = parseAlg' xs $ [permFromString [x]] : a
 
 instance {-# Overlapping #-} (Show Algorithm) where
-    show a = concat $ intersperse " " $ map permToString a
+    show a = unwords $ map permToString a
 
 permNotations :: [(String, Permutation Integer)]
 permNotations =
@@ -69,13 +81,20 @@ permNotations =
             , ("x", x)
             , ("y", y)
             , ("z", z)
+            , ("f", f * s ^- 1)
+            , ("u", u * e ^- 1)
+            , ("d", d * e)
+            , ("r", r * m ^- 1)
+            , ("l", l * m)
+            , ("b", b * s)
             ]
     in  base
         ++ map (\(n, p) -> (n ++ "'", p ^- 1)) base
         ++ map (\(n, p) -> (n ++ "2", p ^ 2))  base
 
 permFromString :: String -> Permutation Integer
-permFromString s = fromJust $ lookup s permNotations
+permFromString s =
+    fromMaybe (error $ "unknown move: \"" ++ s ++ "\"") $ lookup s permNotations
 
 permToString :: Permutation Integer -> String
 permToString s = fromJust $ lookup s $ map swap permNotations
