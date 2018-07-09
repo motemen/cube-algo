@@ -2,14 +2,23 @@
 
 module Lib
     ( parseAlg
+    , algToFacelets
+    , f
+    , u
+    , d
+    , r
+    , l
+    , b
     , m
-    , e
     , s
+    , e
     , x
     , y
     , z
-    , algToFacelets
-    , initFaceletMap
+    , findRoundTripAlgo2
+    , findRoundTripAlgo3
+    , uFace
+    , findInverse
     )
 where
 
@@ -43,6 +52,8 @@ z = f * s ^- 1 * b ^- 1
 --           34  D 36
 --           37 38 39
 
+uFace = concat $ map (\(f, nn) -> nn `zip` repeat f) [ ('u', [11..19]), ('f', [1,2,3]), ('r', [41,42,43]), ('b', [51,52,53]), ('l', [21,22,23]) ]
+
 parseAlg :: String -> Algorithm
 parseAlg s = let (a, rest) = parseAlg' s [] in a
   where
@@ -55,11 +66,11 @@ parseAlg s = let (a, rest) = parseAlg' s [] in a
     parseAlg' (x : xs) a
         | isSpace x = parseAlg' xs a
         | x == '\'' = parseAlg' xs $ pow (head a) (-1) : tail a
-        | x == '2'  = parseAlg' xs $ pow (head a) 2 : tail a
-        | x == '3'  = parseAlg' xs $ pow (head a) 3 : tail a
-        | x == '4'  = parseAlg' xs $ pow (head a) 4 : tail a
-        | x == '('  = let (a', rest) = parseAlg' xs []
-                      in  parseAlg' rest $ a' : a
+        | x == '2' = parseAlg' xs $ pow (head a) 2 : tail a
+        | x == '3' = parseAlg' xs $ pow (head a) 3 : tail a
+        | x == '4' = parseAlg' xs $ pow (head a) 4 : tail a
+        | x == '(' = let (a', rest) = parseAlg' xs []
+                     in  parseAlg' rest $ a' : a
         | x == ')' = (concat $ reverse a, xs)
         | otherwise = parseAlg' xs $ [permFromString [x]] : a
 
@@ -111,7 +122,7 @@ algToFacelets alg = mapMaybe (\(n, _) -> n `lookup` faceletMap) initFaceletMap
 
 initFaceletMap :: [(Integer, Char)]
 initFaceletMap =
-    concatMap (\(nn, f) -> nn `zip` repeat f) $ indices `zip` facelets
+    concat $ zipWith (\nn f -> nn `zip` repeat f) indices facelets
   where
     indices =
         [ [11 .. 19] -- U
@@ -122,3 +133,13 @@ initFaceletMap =
         , [51 .. 59] -- B
         ]
     facelets = "urfdlb"
+
+findRoundTripAlgo3 algos =
+    [ [ a1, a2, a3 ] | a1 <- algos, a2 <- algos, a3 <- algos, (product $ a1 ++ a2 ++ a3) == p [] ]
+
+findRoundTripAlgo2 algos =
+    [ [ a1, a2 ] | a1 <- algos, a2 <- algos, (product $ a1 ++ a2) == p [] ]
+
+findInverse :: [Algorithm] -> Int -> Permutation Integer -> [Algorithm]
+findInverse algos 1 perm =
+    [ a | a <- algos, product (a ++ [perm]) == p [] ]
